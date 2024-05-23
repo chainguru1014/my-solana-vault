@@ -14,7 +14,6 @@ describe("Test", async () => {
   // Set up the provider
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-
   // Set up the program and wallet
   const pg = {
     program: anchor.workspace.MySolanaVault,
@@ -140,44 +139,6 @@ describe("Test", async () => {
     assert.equal(newVaultBalance, vaultBalance + 100000000);
   });
 
-  // Test case for failing withdraw to unregistered account
-  it("Fail Deposit into Vault with unregistered user", async () => {
-    try {
-      const amount = new BN(100000000);
-      // Send the deposit transaction
-      await pg.program.methods
-      .deposit(amount)
-      .accounts({
-        userVaultAccount: userVaultAccount,
-        signer: pg.account1.publicKey,
-        systemProgram: web3.SystemProgram.programId,
-      })
-      .signers([pg.wallet.payer])
-      .rpc();
-    } catch (error) {
-      assert.equal(error.message, "Signature verification failed.\nMissing signature for public key [`" + pg.account1.publicKey.toBase58() + "`].");
-    }
-  });
-
-  // Test case for failing withdraw to unregistered account
-  it("Fail Withdraw to unregistered user", async () => {
-    try {
-      const amount = new BN(100000000);
-      // Send the deposit transaction
-      await pg.program.methods
-      .withdraw(amount)
-      .accounts({
-        userVaultAccount: userVaultAccount,
-        signer: pg.account1.publicKey,
-        systemProgram: web3.SystemProgram.programId,
-      })
-      .signers([pg.wallet.payer])
-      .rpc();
-    } catch (error) {
-      assert.equal(error.message, "Signature verification failed.\nMissing signature for public key [`" + pg.account1.publicKey.toBase58() + "`].");
-    }
-  });
-
   // Test case for withdrawing from the vault
   it("Withdraw from vault", async () => {
     // Send the withdraw transaction
@@ -201,8 +162,23 @@ describe("Test", async () => {
     assert.equal(newVaultBalance, vaultBalance - 100000000);
   });
 
-  // Test case for failing deposit into vault without registered user
-  it("Fail Deposit into Vault without registered user", async () => {
+  // Test case for failing withdraw to unregistered account
+  it("Fail Deposit into Vault with unregistered user", async () => {
+    try {
+      const amount = new BN(100000000);
+      // Send the deposit transaction
+      await pg.program.methods
+      .deposit(amount)
+      .accounts({
+        userVaultAccount: userVaultAccount,
+        signer: pg.account1.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .signers([pg.wallet.payer])
+      .rpc();
+    } catch (error) {
+      assert.equal(error.message, "Signature verification failed.\nMissing signature for public key [`" + pg.account1.publicKey.toBase58() + "`].");
+    }
     try {
       const amount = new BN(100000000);
       // Send the deposit transaction
@@ -220,8 +196,23 @@ describe("Test", async () => {
     }
   });
 
-  // Test case for failing withdraw from vault without registered user
-  it("Fail Withdraw into Vault without registered user", async () => {
+  // Test case for failing withdraw to unregistered account
+  it("Fail Withdraw to unregistered user", async () => {
+    try {
+      const amount = new BN(100000000);
+      // Send the deposit transaction
+      await pg.program.methods
+      .withdraw(amount)
+      .accounts({
+        userVaultAccount: userVaultAccount,
+        signer: pg.account1.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .signers([pg.wallet.payer])
+      .rpc();
+    } catch (error) {
+      assert.equal(error.message, "Signature verification failed.\nMissing signature for public key [`" + pg.account1.publicKey.toBase58() + "`].");
+    }
     try {
       const amount = new BN(100000000);
       // Send the deposit transaction
