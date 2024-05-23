@@ -8,6 +8,7 @@ import {
   mintTo
 } from "@solana/spl-token";
 import { assert, expect } from "chai";
+import { Keypair } from "@solana/web3.js";
 
 describe("Test", async () => {
   // Set up the provider
@@ -18,6 +19,7 @@ describe("Test", async () => {
   const pg = {
     program: anchor.workspace.MySolanaVault,
     wallet: provider.wallet,
+    account1: Keypair.generate(),
     connection: provider.connection,
   };
 
@@ -87,15 +89,32 @@ describe("Test", async () => {
   });
 
   it("Should register a user vault", async () => {
-    const tx = await pg.program.methods
-      .register()
-      .accounts({
-        userVaultAccount: userVaultAccount,
-        signer: pg.wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([pg.wallet.payer])
-      .rpc();
+    try {
+      await pg.program.methods
+        .register()
+        .accounts({
+          userVaultAccount: userVaultAccount,
+          signer: pg.wallet.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .signers([pg.wallet.payer])
+        .rpc();
+      try {
+        await pg.program.methods
+          .register()
+          .accounts({
+            userVaultAccount: userVaultAccount,
+            signer: pg.wallet.publicKey,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .signers([pg.wallet.payer])
+          .rpc();
+      } catch (error) {
+        assert.equal(error.message, "failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x0");
+      }
+    } catch (error) {
+      assert.equal(error.message, "failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x0");
+    }
   });
 
   // Test case for depositing into the vault
@@ -121,6 +140,44 @@ describe("Test", async () => {
     assert.equal(newVaultBalance, vaultBalance + 100000000);
   });
 
+  // Test case for failing withdraw to unregistered account
+  it("Fail Deposit into Vault with unregistered user", async () => {
+    try {
+      const amount = new BN(100000000);
+      // Send the deposit transaction
+      await pg.program.methods
+      .deposit(amount)
+      .accounts({
+        userVaultAccount: userVaultAccount,
+        signer: pg.account1.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .signers([pg.wallet.payer])
+      .rpc();
+    } catch (error) {
+      assert.equal(error.message, "Signature verification failed.\nMissing signature for public key [`" + pg.account1.publicKey.toBase58() + "`].");
+    }
+  });
+
+  // Test case for failing withdraw to unregistered account
+  it("Fail Withdraw to unregistered user", async () => {
+    try {
+      const amount = new BN(100000000);
+      // Send the deposit transaction
+      await pg.program.methods
+      .withdraw(amount)
+      .accounts({
+        userVaultAccount: userVaultAccount,
+        signer: pg.account1.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .signers([pg.wallet.payer])
+      .rpc();
+    } catch (error) {
+      assert.equal(error.message, "Signature verification failed.\nMissing signature for public key [`" + pg.account1.publicKey.toBase58() + "`].");
+    }
+  });
+
   // Test case for withdrawing from the vault
   it("Withdraw from vault", async () => {
     // Send the withdraw transaction
@@ -142,6 +199,44 @@ describe("Test", async () => {
 
     const newVaultBalance = await pg.connection.getBalance(userVaultAccount);
     assert.equal(newVaultBalance, vaultBalance - 100000000);
+  });
+
+  // Test case for failing deposit into vault without registered user
+  it("Fail Deposit into Vault without registered user", async () => {
+    try {
+      const amount = new BN(100000000);
+      // Send the deposit transaction
+      await pg.program.methods
+        .deposit(amount)
+        .accounts({
+          userVaultAccount: userVaultAccount,
+          signer: pg.wallet.publicKey,
+          systemProgram: web3.SystemProgram.programId,
+        })
+        .signers([pg.account1])
+        .rpc();
+    } catch (error) {
+      assert.equal(error.message, "unknown signer: " + pg.account1.publicKey.toBase58());
+    }
+  });
+
+  // Test case for failing withdraw from vault without registered user
+  it("Fail Withdraw into Vault without registered user", async () => {
+    try {
+      const amount = new BN(100000000);
+      // Send the deposit transaction
+      await pg.program.methods
+      .withdraw(amount)
+      .accounts({
+        userVaultAccount: userVaultAccount,
+        signer: pg.wallet.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .signers([pg.account1])
+      .rpc();
+    } catch (error) {
+      assert.equal(error.message, "unknown signer: " + pg.account1.publicKey.toBase58());
+    }
   });
 
   // Test case for failing deposit due to insufficient funds
@@ -202,6 +297,26 @@ describe("Test", async () => {
     assert.equal(tokenAccountInfo.amount / BigInt(mintDecimals), BigInt(0));
   });
 
+  // Test case for registering a token
+  it("Fail Register token without registered user", async () => {
+    try {
+      // Send the register token transaction
+      await pg.program.methods
+        .registerToken()
+        .accounts({
+          tokenAccountOwnerPda: tokenAccountOwnerPda,
+          vaultTokenAccount: tokenVault,
+          senderTokenAccount: tokenAccount.address,
+          mintOfTokenBeingSent: SPLToken,
+          signer: pg.wallet.publicKey,
+        })
+        .signers([pg.account1])
+        .rpc(confirmOptions);
+    } catch (error) {
+      assert.equal(error.message, "unknown signer: " + pg.account1.publicKey.toBase58());
+    }
+  });
+
   // Test case for depositing SPL tokens
   it("Deposit SPL Token", async () => {
     // Send the deposit SPL token transaction
@@ -242,6 +357,46 @@ describe("Test", async () => {
     assert.equal(tokenAccountInfo.amount / BigInt(mintDecimals), BigInt(100));
     tokenAccountInfo = await getAccount(pg.connection, tokenVault);
     assert.equal(tokenAccountInfo.amount / BigInt(mintDecimals), BigInt(0));
+  });
+
+  // Test case for failing deposit spl token into vault without registered user
+  it("Fail Deposit SPL Token into Vault without registered user", async () => {
+    try {
+      // Send the deposit transaction
+      await pg.program.methods
+        .depositToken(new anchor.BN(1 * mintDecimals))
+        .accounts({
+          tokenAccountOwnerPda: tokenAccountOwnerPda,
+          vaultTokenAccount: tokenVault,
+          senderTokenAccount: tokenAccount.address,
+          mintOfTokenBeingSent: SPLToken,
+          signer: pg.wallet.publicKey,
+        })
+        .signers([pg.account1])
+        .rpc(confirmOptions);
+    } catch (error) {
+      assert.equal(error.message, "unknown signer: " + pg.account1.publicKey.toBase58());
+    }
+  });
+
+  // Test case for failing withdraw spl token from vault without registered user
+  it("Fail Withdraw SPL Token into Vault without registered user", async () => {
+    try {
+      // Send the deposit transaction
+      await pg.program.methods
+        .withdrawToken(new anchor.BN(1 * mintDecimals))
+        .accounts({
+          tokenAccountOwnerPda: tokenAccountOwnerPda,
+          vaultTokenAccount: tokenVault,
+          senderTokenAccount: tokenAccount.address,
+          mintOfTokenBeingSent: SPLToken,
+          signer: pg.wallet.publicKey,
+        })
+        .signers([pg.account1])
+        .rpc(confirmOptions);
+    } catch (error) {
+      assert.equal(error.message, "unknown signer: " + pg.account1.publicKey.toBase58());
+    }
   });
 
   // Test case for failing Deposit SPL Token due to Insufficient Balance

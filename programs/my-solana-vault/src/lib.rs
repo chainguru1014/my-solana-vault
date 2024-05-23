@@ -154,12 +154,12 @@ pub struct Withdraw<'info> {
 #[derive(Accounts)]
 pub struct RegisterToken<'info> {
     // Derived PDAs
-    #[account(init, payer = owner, seeds=[b"token_account_owner_pda", owner.key().as_ref()], bump, space = 8)]
+    #[account(init_if_needed, payer = owner, seeds=[b"token_account_owner_pda", owner.key().as_ref()], bump, space = 8)]
     /// CHECK: This is not dangerous because this is native account
     token_account_owner_pda: AccountInfo<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = owner,
         seeds=[b"token_vault", mint_of_token_being_sent.key().as_ref(), owner.key().as_ref()],
         token::mint=mint_of_token_being_sent,
